@@ -32,7 +32,7 @@ const LEAN = -0.1;                  // radians, sleeves lean back against the wa
  * hit the static box, not the moving sleeve, so a sleeve sliding out from
  * under the cursor can't flicker between hovered and not hovered.
  */
-export function buildShelf({ albums = ALBUMS, maxCols = 8, gap = 0.14, rowHeight = 1.55, maxAnisotropy = 8 } = {}) {
+export function buildShelf({ albums = ALBUMS, maxCols = 7, gap = 0.14, rowHeight = 1.55, maxAnisotropy = 8 } = {}) {
   const list = albums.map(normalizeAlbum);
   // Spread albums evenly across the fewest rows, so the last row isn't a lone straggler.
   const rows = Math.max(1, Math.ceil(list.length / maxCols));

@@ -28,11 +28,15 @@ const soundBtn = document.getElementById('sound');
 
 const PIXELATE_SCENE = PIXEL.enabled && PIXEL.scene > 1;
 // Antialiasing would only smooth the final upscale, so it's off when pixelating.
+// Viewport size, excluding the page scrollbar.
+const viewW = () => document.documentElement.clientWidth;
+const viewH = () => window.innerHeight;
+
 const renderer = new THREE.WebGLRenderer({ antialias: !PIXELATE_SCENE, powerPreference: 'high-performance' });
 const MAX_PIXEL_RATIO = Math.min(window.devicePixelRatio, 2); // >2x costs a lot of fill rate for little gain
 let pixelRatio = MAX_PIXEL_RATIO;
 renderer.setPixelRatio(pixelRatio);
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(viewW(), viewH());
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 renderer.shadowMap.enabled = true;
@@ -69,8 +73,8 @@ if (PIXELATE_SCENE) {
 
 function sizePixelTarget() {
   pixelTarget?.setSize(
-    Math.max(1, Math.round(window.innerWidth / PIXEL.scene)),
-    Math.max(1, Math.round(window.innerHeight / PIXEL.scene)),
+    Math.max(1, Math.round(viewW() / PIXEL.scene)),
+    Math.max(1, Math.round(viewH() / PIXEL.scene)),
   );
 }
 sizePixelTarget();
@@ -104,11 +108,17 @@ pmrem.dispose();
 const shelf = buildShelf({ maxAnisotropy });
 scene.add(shelf.group);
 const center = new THREE.Vector3(0, shelf.size.y / 2 + 0.2, 0);
+// Vertical extent of everything on the wall (plant on top to the shelf's base).
+const sceneTop = shelf.size.y + 0.85;
+const sceneBottom = -0.45;
 
 // Personal knick-knacks on floating shelves either side.
 const deco = buildKnickKnacks({ shelfSize: shelf.size, maxAnisotropy });
 scene.add(deco.group);
-const sceneSize = new THREE.Vector2(deco.width, shelf.size.y + 1.3); // room for the plant on top
+// The camera is framed for a 4-row shelf so covers stay the same size however
+// many albums there are; taller shelves scroll.
+const VIEW_HEIGHT = 4 * 1.55 + 0.15 + 1.3;
+const sceneSize = new THREE.Vector2(deco.width, Math.min(sceneTop - sceneBottom, VIEW_HEIGHT));
 
 const wall = new THREE.Mesh(
   new THREE.PlaneGeometry(40, 20),
@@ -120,13 +130,14 @@ scene.add(wall);
 
 // Warm key light, angled so the clearcoat picks up a highlight across the sleeves.
 const key = new THREE.DirectionalLight(0xffe2c4, 2.2);
-key.position.set(4, 7, 6);
+key.position.set(4, center.y + 3.6, 6); // stays above the shelf's middle however tall it gets
 key.target.position.copy(center);
 key.castShadow = true;
 key.shadow.mapSize.set(1024, 1024);
 key.shadow.bias = -0.0004;
 key.shadow.normalBias = 0.02;
-Object.assign(key.shadow.camera, { left: -9.5, right: 9.5, top: 5, bottom: -4.5, near: 1, far: 22 });
+const shadowHalf = (sceneTop - sceneBottom) / 2 + 1;
+Object.assign(key.shadow.camera, { left: -9.5, right: 9.5, top: shadowHalf, bottom: -shadowHalf, near: 1, far: 26 });
 scene.add(key, key.target);
 
 /* ---------------- Vinyl (one shared disc) ---------------- */
@@ -160,8 +171,18 @@ for (const { url, position = [0, 0, 0], scale = 1 } of MODELS) {
 
 /* ---------------- Camera ---------------- */
 
-const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 60);
+const camera = new THREE.PerspectiveCamera(35, viewW() / viewH(), 0.1, 60);
 const camBase = new THREE.Vector3();
+
+/* ---------------- Scrolling ---------------- */
+
+// The canvas stays fixed; a tall spacer gives the page a real scrollbar, and
+// the scroll position slides the camera down the wall.
+const scrollSpace = document.getElementById('scroll-space');
+const SCROLL_MARGIN = 0.4;   // breathing room above the plant and below the shelf
+let visibleHeight = 1;       // world units visible top to bottom (at the shelf)
+let scrollRange = 0;         // world units of wall below the first screenful
+let pixelsPerUnit = 1;
 
 function fitCamera() {
   const halfV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
@@ -169,11 +190,24 @@ function fitCamera() {
     (sceneSize.y / 2) / halfV,
     (sceneSize.x / 2) / (halfV * camera.aspect),
   ) * 1.06;
-  camBase.set(center.x, center.y + 0.3, dist);
+  camBase.set(center.x, 0, dist);
+  visibleHeight = 2 * dist * halfV;
+  scrollRange = Math.max(0, sceneTop - sceneBottom + SCROLL_MARGIN * 2 - visibleHeight);
+  pixelsPerUnit = viewH() / visibleHeight;
+  scrollSpace.style.height = `${Math.ceil(viewH() + scrollRange * pixelsPerUnit)}px`;
 }
+
+// Height the camera looks at for the current scroll position.
+function viewCenterY() {
+  if (scrollRange <= 0) return (sceneTop + sceneBottom) / 2 + 0.2;
+  const scrolled = Math.min(scrollRange, window.scrollY / pixelsPerUnit);
+  return sceneTop + SCROLL_MARGIN - visibleHeight / 2 - scrolled;
+}
+
 fitCamera();
-camera.position.copy(camBase);
-camera.lookAt(center);
+camera.position.set(camBase.x, viewCenterY() + 0.3, camBase.z);
+camera.lookAt(center.x, viewCenterY(), 0);
+let parallaxY = 0;
 
 /* ---------------- Interaction ---------------- */
 
@@ -224,9 +258,9 @@ soundBtn.addEventListener('click', () => {
 });
 
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = viewW() / viewH();
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(viewW(), viewH());
   sizePixelTarget();
   fitCamera();
 });
@@ -270,9 +304,11 @@ renderer.setAnimationLoop((now) => {
   const px = hover.pointer.x, py = hover.pointer.y;
   const prevX = camera.position.x, prevY = camera.position.y;
   camera.position.x = damp(camera.position.x, camBase.x + px * 0.4, 3, dt);
-  camera.position.y = damp(camera.position.y, camBase.y + py * 0.25, 3, dt);
+  parallaxY = damp(parallaxY, py * 0.25, 3, dt);
+  const viewY = viewCenterY();
+  camera.position.y = viewY + 0.3 + parallaxY;
   camera.position.z = camBase.z;
-  lookTarget.copy(center);
+  lookTarget.set(center.x, viewY, 0);
   camera.lookAt(lookTarget);
   const camMoved = Math.abs(camera.position.x - prevX) + Math.abs(camera.position.y - prevY) > 1e-5;
 

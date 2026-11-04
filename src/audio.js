@@ -6,8 +6,9 @@
 // The sound button mutes/unmutes with disable()/enable().
 
 const HOVER_DELAY = 250;   // ms on a sleeve before audio starts, so sweeping the mouse stays quiet
-const MUSIC_VOLUME = 0.6;
-const CRACKLE_VOLUME = 0.012; // kept well under the music; raise for more vinyl noise
+// Volumes are about half their original levels, which were too loud on headphones.
+const MUSIC_VOLUME = 0.3;
+const CRACKLE_VOLUME = 0.006; // kept well under the music; raise for more vinyl noise
 const FADE_IN = 0.6;       // seconds
 const FADE_OUT = 0.35;
 
@@ -204,7 +205,7 @@ function fade(audio, to, seconds, done) {
 // Karplus-Strong plucked strings: each string is a short burst of noise fed
 // through a delay line that averages and decays, which sounds like a plucked
 // string. Six strings with a small delay between them make a downstrum.
-const STRUM_VOLUME = 0.35;
+const STRUM_VOLUME = 0.18;
 function makeStrum(ctx) {
   const rate = ctx.sampleRate;
   const length = Math.floor(rate * 3);
@@ -234,7 +235,7 @@ function makeStrum(ctx) {
 /* Knick-knack sound effects, synthesized (no audio files)            */
 /* ------------------------------------------------------------------ */
 
-const SFX_VOLUME = 0.5;
+const SFX_VOLUME = 0.25;
 // Longer clips get longer cooldowns so they can't pile up on top of each other.
 const SFX_COOLDOWN = { croatia: 4000, jig: 4200, cheer: 3000, drink: 1500, pour: 2200, train: 3600 };
 
@@ -268,7 +269,7 @@ function oldManShouts(text) {
   if (voice) say.voice = voice;
   say.pitch = 0;    // as low and gravelly as it goes
   say.rate = 1.15;  // barked, not drawn out
-  say.volume = 1;
+  say.volume = 0.5;
   speech.cancel();
   speech.speak(say);
 }

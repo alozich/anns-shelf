@@ -11,6 +11,9 @@ import { createHitProxy } from './hover.js';
 const WALL_Z = -0.33;
 const SIDE_GAP = 0.5;      // space between the record shelf and the side areas
 const SIDE_WIDTH = 2.7;    // width of each side area
+// The side layout was designed around a 4-row record shelf. A taller shelf
+// raises it so the knick-knacks stay level with the top rows.
+const LAYOUT_HEIGHT = 4 * 1.55 + 0.15;
 
 /* ---------------- small helpers ---------------- */
 
@@ -659,6 +662,7 @@ function brigidsCross() {
 export function buildKnickKnacks({ shelfSize, maxAnisotropy = 8 }) {
   const group = new THREE.Group();
   const items = [];
+  const lift = Math.max(0, shelfSize.y - LAYOUT_HEIGHT);
   const leftX = -(shelfSize.x / 2 + SIDE_GAP + SIDE_WIDTH / 2);
   const rightX = -leftX;
 
@@ -692,7 +696,7 @@ export function buildKnickKnacks({ shelfSize, maxAnisotropy = 8 }) {
   add(gameController(), leftX + 0.7, lowerL, 0.02, { title: 'Video games', sound: 'coin' });
 
   // On top of the record shelf's left corner (the top ledge is at shelfSize.y - 0.15).
-  add(pothos(), -shelfSize.x / 2 + 0.35, shelfSize.y - 0.15, -0.05, { sound: 'rustle' });
+  add(pothos(), -shelfSize.x / 2 + 0.35, shelfSize.y - 0.15 - lift, -0.05, { sound: 'rustle' });
 
   // Right side
   add(croatiaPostcard(), rightX + 0.55, 6.05, WALL_Z + 0.01, { title: 'Croatia', tilt: 0.06, wall: true, sound: 'croatia' });
@@ -714,6 +718,8 @@ export function buildKnickKnacks({ shelfSize, maxAnisotropy = 8 }) {
     group.add(proxy);
     return proxy;
   });
+  // Raise everything (hit boxes included) to line up with the shelf's top rows.
+  group.position.y = lift;
 
   // Hover animation: objects lift and turn a little; some have their own.
   // Returns true while anything that casts a shadow is moving.
