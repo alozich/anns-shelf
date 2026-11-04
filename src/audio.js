@@ -1,8 +1,9 @@
 // Hover audio: plays an album's song preview while its sleeve is hovered,
 // with a quiet vinyl crackle underneath.
 //
-// Browsers only allow sound after the user clicks or presses a key, so sound
-// starts switched off and is turned on with enable() from a button click.
+// Sound is on by default, but browsers block audio until the visitor's first
+// click, tap or key press on the page, so it starts playing from then on.
+// The sound button mutes/unmutes with disable()/enable().
 
 const HOVER_DELAY = 250;   // ms on a sleeve before audio starts, so sweeping the mouse stays quiet
 const MUSIC_VOLUME = 0.6;
@@ -12,7 +13,9 @@ const FADE_OUT = 0.35;
 
 export class HoverAudio {
   constructor() {
-    this.enabled = false;
+    this.enabled = true;
+    this.unlocked = false;   // true after the first click/tap/key press
+    this.onUnlock = null;    // called once audio is allowed to play
     this.ctx = null;
     this.crackleGain = null;
     this.players = new Map(); // album -> HTMLAudioElement, created on first hover
@@ -24,19 +27,38 @@ export class HoverAudio {
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.setAlbum(null);
     });
+
+    // The first click, tap or key press anywhere lets the browser play audio.
+    const unlock = () => {
+      window.removeEventListener('pointerdown', unlock, true);
+      window.removeEventListener('keydown', unlock, true);
+      this._unlock();
+    };
+    window.addEventListener('pointerdown', unlock, true);
+    window.addEventListener('keydown', unlock, true);
   }
 
-  /** Must be called from a click/keypress handler. */
-  async enable() {
-    this.enabled = true;
+  _unlock() {
     if (!this.ctx) {
       this.ctx = new AudioContext();
       this._startCrackle();
     }
-    await this.ctx.resume();
+    this.ctx.resume();
+    if (this.unlocked) return;
+    this.unlocked = true;
     const album = this.album;
     this.album = null;
     this.setAlbum(album); // start playing if something is already hovered
+    this.onUnlock?.();
+  }
+
+  /** Turn sound back on (from the sound button, which counts as a click). */
+  enable() {
+    this.enabled = true;
+    this._unlock();
+    const album = this.album;
+    this.album = null;
+    this.setAlbum(album);
   }
 
   disable() {
@@ -62,7 +84,7 @@ export class HoverAudio {
     }
     this._setCrackle(0);
 
-    if (!album || !this.enabled) return;
+    if (!album || !this.enabled || !this.unlocked) return;
     this._timer = setTimeout(() => this._play(album), HOVER_DELAY);
   }
 
@@ -170,8 +192,9 @@ function fade(audio, to, seconds, done) {
   fades.set(audio, token);
   const step = (now) => {
     if (fades.get(audio) !== token) return;
-    const t = Math.min(1, (now - start) / (seconds * 1000));
-    audio.volume = from + (to - from) * t;
+    // The frame timestamp can be a hair earlier than `start`, so clamp to 0..1.
+    const t = Math.min(1, Math.max(0, (now - start) / (seconds * 1000)));
+    audio.volume = Math.min(1, Math.max(0, from + (to - from) * t));
     if (t < 1) requestAnimationFrame(step);
     else done?.();
   };

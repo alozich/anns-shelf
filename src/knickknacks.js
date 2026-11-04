@@ -619,6 +619,41 @@ function perfumeBottle() {
   return group;
 }
 
+function brigidsCross() {
+  // St Brigid's Cross: a woven square of rushes in the middle, four arms of
+  // bundled straws offset into a pinwheel, each tied near its end.
+  const group = new THREE.Group();
+  const light = mat('#d8c68c');
+  const mid = mat('#c4ad6a');
+  const dark = mat('#a88f4c');
+  const tie = mat('#6f5a2c');
+  const strip = 0.04;   // width of one rush
+  const C = 0.2;        // size of the woven centre
+
+  // Woven centre: crossing strips alternate over/under in two shades
+  for (let i = 0; i < 5; i++) {
+    const o = -C / 2 + strip / 2 + i * strip;
+    group.add(box(C, strip * 0.9, 0.02, i % 2 ? light : mid, { pos: [0, o, i % 2 ? 0.02 : 0.005], shadow: false }));
+    group.add(box(strip * 0.9, C, 0.02, i % 2 ? dark : light, { pos: [o, 0, i % 2 ? 0.005 : 0.02], shadow: false }));
+  }
+
+  // Arms: pointing right, up, left and down, each offset to one side so the
+  // four together make the pinwheel around the centre
+  for (let a = 0; a < 4; a++) {
+    const arm = new THREE.Group();
+    arm.rotation.z = (a * Math.PI) / 2;
+    const shades = [light, mid, dark];
+    for (let k = 0; k < 3; k++) {
+      const len = 0.36 + ((k * 7 + a * 3) % 5) * 0.015; // slightly uneven ends
+      arm.add(box(len, strip, 0.025, shades[(k + a) % 3], { pos: [C / 2 + len / 2 - 0.02, 0.0 + k * strip, 0.012] }));
+    }
+    arm.add(box(0.06, strip * 3.6, 0.035, tie, { pos: [C / 2 + 0.25, strip, 0.012] }));
+    group.add(arm);
+  }
+  group.scale.setScalar(1.15);
+  return group;
+}
+
 /* ---------------- layout ---------------- */
 
 export function buildKnickKnacks({ shelfSize, maxAnisotropy = 8 }) {
@@ -667,6 +702,7 @@ export function buildKnickKnacks({ shelfSize, maxAnisotropy = 8 }) {
   add(coffeeMug(), rightX + 0.15, upperR, 0.0, { title: 'Black coffee', sound: 'pour' });
   add(carefulNowSign(), rightX + 0.85, upperR, -0.08, { title: 'Careful now', sub: 'Down with this sort of thing', sound: 'drink' });
 
+  add(brigidsCross(), rightX + 0.85, 3.9, WALL_Z + 0.03, { title: "St Brigid's Cross", tilt: 0.08, wall: true, sound: 'rustle' });
   add(irelandPhoto(), rightX + 0.82, 2.75, WALL_Z + 0.03, { title: 'Ireland', sub: 'Galway and the Aran Islands', tilt: 0.05, wall: true, sound: 'jig' });
   add(guitar(), rightX - 0.1, 4.2, -0.2, { title: 'My guitar', sub: 'A Les Paul', sound: 'strum' });
 

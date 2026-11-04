@@ -191,7 +191,7 @@ function updateLabel() {
   }
   if (hovered.album) {
     const { title, artist, track } = hovered.album;
-    const playing = audio.enabled && track ? `<em>♪ ${escapeHtml(track)}</em>` : '';
+    const playing = audio.enabled && audio.unlocked && track ? `<em>♪ ${escapeHtml(track)}</em>` : '';
     labelEl.innerHTML = `${escapeHtml(title)}<small>${escapeHtml(artist)}</small>${playing}`;
   } else {
     const { title, sub } = hovered.caption;
@@ -212,10 +212,12 @@ function setHovered(item) {
   updateLabel();
 }
 
-// Browsers only allow audio after a click, so sound starts off.
-soundBtn.addEventListener('click', async () => {
+// Sound is on by default (it starts after the first click anywhere);
+// this button mutes and unmutes.
+audio.onUnlock = updateLabel;
+soundBtn.addEventListener('click', () => {
   if (audio.enabled) audio.disable();
-  else await audio.enable();
+  else audio.enable();
   soundBtn.textContent = audio.enabled ? '♪ Sound on' : '♪ Sound off';
   soundBtn.classList.toggle('on', audio.enabled);
   updateLabel();
