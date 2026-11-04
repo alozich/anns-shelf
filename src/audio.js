@@ -237,7 +237,7 @@ function makeStrum(ctx) {
 
 const SFX_VOLUME = 0.25;
 // Longer clips get longer cooldowns so they can't pile up on top of each other.
-const SFX_COOLDOWN = { croatia: 4000, jig: 4200, cheer: 3000, drink: 1500, pour: 2200, train: 3600 };
+const SFX_COOLDOWN = { croatia: 4000, jig: 4200, cheer: 3000, drink: 1500, pour: 2200, train: 3600, drivein: 2200 };
 
 // Note name to frequency, e.g. 'A4' -> 440.
 const NOTE = (name) => {
@@ -477,6 +477,21 @@ const SFX = {
       }
     }
     s.tone({ at: 1.2, freq: 2600, to: 2350, dur: 0.9, attack: 0.25, peak: 0.025, vibrato: { rate: 9, depth: 40 } });
+  },
+  // Drive-in: a film projector whirring, then a friendly "beep beep" car horn
+  drivein(s) {
+    s.noise({ freq: 1400, q: 2, dur: 1.6, attack: 0.15, peak: 0.07, pulse: 24 });
+    s.tone({ freq: 55, type: 'triangle', dur: 1.6, attack: 0.15, peak: 0.05 });
+    for (const at of [0.35, 0.6]) {
+      s.tone({ at, freq: 392, type: 'square', dur: 0.16, attack: 0.01, peak: 0.035 });
+      s.tone({ at, freq: 494, type: 'square', dur: 0.16, attack: 0.01, peak: 0.035 });
+    }
+  },
+  // A dart: a quick whoosh through the air, then a thunk into the board
+  darts(s) {
+    s.noise({ filter: 'highpass', freq: 1800, to: 5000, dur: 0.2, attack: 0.04, peak: 0.08 });
+    s.tone({ at: 0.25, freq: 150, to: 70, type: 'triangle', dur: 0.08, peak: 0.35, attack: 0.002 });
+    s.noise({ at: 0.25, freq: 900, q: 2, dur: 0.035, peak: 0.25 });
   },
   // Coffee pouring into the mug: a stream that rises in pitch as the cup
   // fills, a few glugs, then a spoon clink.

@@ -223,13 +223,20 @@ function updateLabel() {
     labelEl.classList.remove('visible');
     return;
   }
+  // Browsers block audio until the first click, so until then, anything that
+  // would make a sound nudges the visitor to click.
+  const needsClick = audio.enabled && !audio.unlocked;
+  const nudge = '<em>click anywhere for sound</em>';
   if (hovered.album) {
-    const { title, artist, track } = hovered.album;
-    const playing = audio.enabled && audio.unlocked && track ? `<em>♪ ${escapeHtml(track)}</em>` : '';
-    labelEl.innerHTML = `${escapeHtml(title)}<small>${escapeHtml(artist)}</small>${playing}`;
+    const { title, artist, track, preview } = hovered.album;
+    let extra = '';
+    if (needsClick && preview) extra = nudge;
+    else if (audio.enabled && track) extra = `<em>♪ ${escapeHtml(track)}</em>`;
+    labelEl.innerHTML = `${escapeHtml(title)}<small>${escapeHtml(artist)}</small>${extra}`;
   } else {
-    const { title, sub } = hovered.caption;
-    labelEl.innerHTML = escapeHtml(title) + (sub ? `<small>${escapeHtml(sub)}</small>` : '');
+    const { title, sub, sound } = hovered.caption;
+    labelEl.innerHTML = escapeHtml(title) + (sub ? `<small>${escapeHtml(sub)}</small>` : '')
+      + (needsClick && sound ? nudge : '');
   }
   labelEl.classList.add('visible');
 }

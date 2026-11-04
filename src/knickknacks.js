@@ -657,6 +657,210 @@ function brigidsCross() {
   return group;
 }
 
+function redConvertible() {
+  // A 1950s-style red convertible: open top, tail fins, whitewalls, chrome.
+  // Built pointing along +x (the front).
+  const car = new THREE.Group();
+  const red = new THREE.MeshPhysicalMaterial({ color: '#c1121f', roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.06, flatShading: true });
+  const chrome = mat('#d6d6da', { metal: 0.9, rough: 0.2 });
+  const cream = mat('#efe3c8');
+
+  car.add(mesh(new THREE.BoxGeometry(0.62, 0.09, 0.28), red, { pos: [0, 0.09, 0] }));             // body
+  car.add(box(0.26, 0.006, 0.22, mat('#4a0d12'), { pos: [-0.05, 0.136, 0], shadow: false }));   // open cockpit
+  car.add(box(0.06, 0.07, 0.22, cream, { pos: [0.02, 0.165, 0] }));                            // front bench
+  car.add(box(0.06, 0.07, 0.22, cream, { pos: [-0.13, 0.165, 0] }));                           // rear bench
+  car.add(mesh(new THREE.TorusGeometry(0.028, 0.006, 4, 10), mat('#1a1a1a'), { pos: [0.07, 0.17, 0.06], rot: [0, Math.PI / 2, 0.4] })); // steering wheel
+  const glass = new THREE.MeshPhysicalMaterial({ color: '#bfe3f2', roughness: 0.05, transparent: true, opacity: 0.45, depthWrite: false });
+  car.add(mesh(new THREE.BoxGeometry(0.005, 0.07, 0.25), glass, { pos: [0.11, 0.17, 0], rot: [0, 0, 0.45], shadow: false })); // windshield
+  for (const z of [-0.125, 0.125]) {
+    car.add(mesh(new THREE.BoxGeometry(0.13, 0.045, 0.02), red, { pos: [-0.25, 0.15, z], rot: [0, 0, -0.25] })); // tail fins
+    car.add(box(0.012, 0.03, 0.04, mat('#ff2a2a', { emissive: '#aa0000' }), { pos: [-0.312, 0.115, z * 0.8], shadow: false })); // tail lights
+    car.add(box(0.012, 0.035, 0.05, mat('#fff4cc', { emissive: '#665c33' }), { pos: [0.312, 0.105, z * 0.8], shadow: false })); // headlights
+  }
+  car.add(box(0.025, 0.03, 0.3, chrome, { pos: [0.315, 0.06, 0] }));   // bumpers
+  car.add(box(0.025, 0.03, 0.3, chrome, { pos: [-0.315, 0.06, 0] }));
+  car.add(box(0.5, 0.008, 0.005, chrome, { pos: [0, 0.1, 0.141], shadow: false })); // side trim
+  car.add(box(0.5, 0.008, 0.005, chrome, { pos: [0, 0.1, -0.141], shadow: false }));
+  const tire = new THREE.CylinderGeometry(0.055, 0.055, 0.04, 10);
+  const wall = new THREE.CylinderGeometry(0.035, 0.035, 0.042, 10);
+  for (const x of [-0.19, 0.19]) {
+    for (const z of [-0.135, 0.135]) {
+      car.add(mesh(tire, mat('#151515'), { pos: [x, 0.055, z], rot: [Math.PI / 2, 0, 0] }));
+      car.add(mesh(wall, mat('#f2f2f2'), { pos: [x, 0.055, z], rot: [Math.PI / 2, 0, 0], shadow: false }));
+    }
+  }
+  return car;
+}
+
+function driveInDiorama() {
+  // A little drive-in: a screen playing a looping pixel movie, a red
+  // convertible parked facing it, and a speaker post by the driver's door.
+  let t = 0;
+  let flicker = 1;
+  const screen = canvasTexture(32, 18, (g, w, h) => {
+    const scene = Math.floor(t / 4) % 3;
+    const u = (t % 4) / 4;
+    const rnd = (k) => { const x = Math.sin(k * 12.9898 + Math.floor(t * 10) * 78.233) * 43758.5453; return x - Math.floor(x); };
+
+    if (scene === 0) {
+      // Old film countdown leader: sepia, a sweeping wedge, 3-2-1
+      g.fillStyle = '#d9c9a3';
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = '#b8a47a';
+      g.beginPath(); g.moveTo(w / 2, h / 2); g.arc(w / 2, h / 2, h * 0.7, -Math.PI / 2, -Math.PI / 2 + ((u * 3) % 1) * Math.PI * 2); g.fill();
+      g.strokeStyle = '#3b3326'; g.lineWidth = h * 0.04;
+      g.beginPath(); g.arc(w / 2, h / 2, h * 0.38, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.moveTo(w / 2, 0); g.lineTo(w / 2, h); g.stroke();
+      g.fillStyle = '#2a241b';
+      g.font = `bold ${h * 0.5}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(String(3 - Math.floor(u * 3)), w / 2, h / 2 + h * 0.03);
+    } else if (scene === 1) {
+      // Sunset over the sea, the sun slowly sinking
+      const sky = g.createLinearGradient(0, 0, 0, h * 0.62);
+      sky.addColorStop(0, '#2b1055'); sky.addColorStop(1, '#ff7e5f');
+      g.fillStyle = sky; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#ffd166';
+      g.beginPath(); g.arc(w * 0.5, h * (0.38 + u * 0.3), h * 0.16, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#1d3557'; g.fillRect(0, h * 0.62, w, h * 0.38);
+      g.fillStyle = 'rgba(255,209,102,0.7)';
+      for (let i = 0; i < 4; i++) g.fillRect(w * (0.44 - i * 0.02), h * (0.66 + i * 0.08), w * (0.12 + i * 0.04), h * 0.025);
+    } else {
+      // Night skyline: twinkling stars, lit windows
+      g.fillStyle = '#0b132b'; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#ffffff';
+      for (let i = 0; i < 14; i++) if (rnd(i) > 0.3) g.fillRect(rnd(i + 50) * w, rnd(i + 90) * h * 0.5, w * 0.02, w * 0.02);
+      const towers = [[0.02, 0.45], [0.12, 0.3], [0.22, 0.55], [0.34, 0.2], [0.44, 0.38], [0.56, 0.25], [0.68, 0.5], [0.8, 0.32], [0.9, 0.42]];
+      towers.forEach(([x, top], i) => {
+        g.fillStyle = '#05070f'; g.fillRect(w * x, h * top, w * 0.1, h);
+        g.fillStyle = '#ffd166';
+        for (let wy = top + 0.06; wy < 0.95; wy += 0.09) if (rnd(i * 31 + wy * 100) > 0.55) g.fillRect(w * (x + 0.03), h * wy, w * 0.025, h * 0.03);
+      });
+    }
+    // Film grain and the odd scratch
+    for (let i = 0; i < 18; i++) {
+      g.fillStyle = rnd(i + 200) > 0.5 ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)';
+      g.fillRect(rnd(i + 300) * w, rnd(i + 400) * h, w * 0.012, w * 0.012);
+    }
+    if (rnd(999) > 0.8) { g.fillStyle = 'rgba(255,255,255,0.4)'; g.fillRect(rnd(998) * w, 0, w * 0.01, h); }
+  });
+
+  const group = new THREE.Group();
+  const darkGrey = mat('#2b2b2e');
+  // Base: asphalt lot with a strip of grass under the screen
+  group.add(box(1.9, 0.06, 0.82, mat('#2f2f33', { rough: 0.95 }), { pos: [0, 0.03, 0] }));
+  group.add(box(1.9, 0.012, 0.16, mat('#3f6b35', { rough: 0.95 }), { pos: [0, 0.066, -0.33] }));
+  for (const x of [-0.7, 0.35]) group.add(box(0.012, 0.008, 0.4, mat('#d8d0bd'), { pos: [x, 0.064, 0.16], shadow: false })); // parking lines
+
+  // Screen on two posts
+  for (const x of [-0.62, 0.62]) group.add(box(0.05, 1.12, 0.05, darkGrey, { pos: [x, 0.62, -0.35] }));
+  group.add(box(1.36, 0.8, 0.04, darkGrey, { pos: [0, 0.8, -0.35] }));
+  const screenMat = new THREE.MeshStandardMaterial({ color: '#000000', emissive: '#ffffff', emissiveMap: screen.tex, emissiveIntensity: 1.1, roughness: 0.6 });
+  group.add(mesh(new THREE.PlaneGeometry(1.26, 0.71), screenMat, { pos: [0, 0.8, -0.328], shadow: false }));
+
+  // The red convertible, front toward the screen, angled so its side and fins show
+  const car = redConvertible();
+  car.position.set(-0.17, 0.06, 0.13);
+  car.rotation.y = Math.PI / 2 + 0.85;
+  car.scale.setScalar(1.65);
+  group.add(car);
+
+  // Speaker post by the driver's door
+  group.add(cyl(0.012, 0.012, 0.36, 6, mat('#8a8a8f', { metal: 0.6, rough: 0.4 }), { pos: [0.42, 0.24, 0.2] }));
+  group.add(box(0.09, 0.07, 0.05, mat('#6b6b70', { metal: 0.5, rough: 0.4 }), { pos: [0.42, 0.44, 0.2] }));
+
+  let timer = 0;
+  group.userData.update = (dt, hover = 0) => {
+    t += dt;
+    timer += dt;
+    if (timer > 0.1) {
+      timer = 0;
+      screen.redraw();
+      flicker = 0.88 + Math.random() * 0.12;
+    }
+    screenMat.emissiveIntensity = (1.1 + hover * 0.7) * flicker; // brighter when hovered
+  };
+  return group;
+}
+
+function dart() {
+  // One dart, pointing along -z (tip into the board, flights toward the room).
+  const d = new THREE.Group();
+  const steel = mat('#b8b8be', { metal: 0.85, rough: 0.3 });
+  d.add(mesh(new THREE.ConeGeometry(0.008, 0.05, 6), steel, { pos: [0, 0, 0.025], rot: [-Math.PI / 2, 0, 0], shadow: false }));
+  d.add(cyl(0.024, 0.024, 0.11, 8, mat('#8a8a90', { metal: 0.8, rough: 0.35 }), { pos: [0, 0, 0.1], rot: [Math.PI / 2, 0, 0] }));  // barrel
+  d.add(cyl(0.01, 0.01, 0.09, 6, mat('#1a1a1a'), { pos: [0, 0, 0.2], rot: [Math.PI / 2, 0, 0] }));                              // shaft
+  d.add(box(0.12, 0.006, 0.09, mat('#d7141a', { rough: 0.5 }), { pos: [0, 0, 0.25] }));                                          // flights,
+  d.add(box(0.006, 0.12, 0.09, mat('#f4efe6', { rough: 0.5 }), { pos: [0, 0, 0.25] }));                                          // red and white
+  return d;
+}
+
+function dartboard() {
+  // Classic board: 20 black/cream segments (20 at the top), red/green double
+  // and treble rings, green outer bull and red bullseye, on a dark backboard.
+  const { tex } = canvasTexture(64, 64, (g, w) => {
+    const c = w / 2, R = w / 2;
+    const ring = (r0, r1, a0, a1, color) => {
+      g.fillStyle = color;
+      g.beginPath(); g.arc(c, c, R * r1, a0, a1); g.arc(c, c, R * r0, a1, a0, true); g.closePath(); g.fill();
+    };
+    g.fillStyle = '#121212';
+    g.beginPath(); g.arc(c, c, R, 0, Math.PI * 2); g.fill();
+    const step = (Math.PI * 2) / 20;
+    for (let i = 0; i < 20; i++) {
+      const a0 = -Math.PI / 2 - step / 2 + i * step, a1 = a0 + step;
+      const darkSeg = i % 2 === 0;
+      ring(0.08, 0.78, a0, a1, darkSeg ? '#151515' : '#efe3c4');
+      ring(0.72, 0.78, a0, a1, darkSeg ? '#c8102e' : '#1e8f4e'); // double ring
+      ring(0.44, 0.5, a0, a1, darkSeg ? '#c8102e' : '#1e8f4e');  // treble ring
+      g.fillStyle = '#e8e8e8';                                    // number markers
+      g.fillRect(c + Math.cos((a0 + a1) / 2) * R * 0.89 - w * 0.012, c + Math.sin((a0 + a1) / 2) * R * 0.89 - w * 0.012, w * 0.024, w * 0.024);
+    }
+    ring(0, 0.08, 0, Math.PI * 2, '#1e8f4e');  // outer bull
+    ring(0, 0.035, 0, Math.PI * 2, '#c8102e'); // bullseye
+  });
+
+  const group = new THREE.Group();
+  const FACE = 0.07; // z of the board's face
+  group.add(cyl(0.62, 0.62, 0.04, 16, mat('#1f1712'), { pos: [0, 0, -0.02], rot: [Math.PI / 2, 0, 0] }));  // backboard
+  group.add(cyl(0.46, 0.46, 0.07, 24, mat('#141414'), { pos: [0, 0, 0.035], rot: [Math.PI / 2, 0, 0] }));  // board
+  group.add(mesh(new THREE.CircleGeometry(0.46, 32), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85 }), { pos: [0, 0, FACE + 0.001], shadow: false }));
+
+  // Three darts already in the board
+  for (const [x, y, rx, ry] of [[0.02, 0.21, -0.45, 0.25], [-0.08, -0.04, -0.5, -0.35], [0.17, 0.04, -0.35, 0.45]]) {
+    const d = dart();
+    d.position.set(x, y, FACE);
+    d.rotation.set(rx, ry, 0);
+    group.add(d);
+  }
+
+  // A fourth dart thrown in from the room on hover, landing at a random spot
+  const thrown = dart();
+  thrown.position.set(-0.1, 0.12, FACE);
+  thrown.visible = false;
+  group.add(thrown);
+  const from = new THREE.Vector3(), to = new THREE.Vector3();
+  let flight = -1; // 0..1 while flying, -1 when resting
+  group.userData.onEnter = () => {
+    if (flight >= 0) return;
+    const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 0.36;
+    to.set(Math.cos(a) * r, Math.sin(a) * r, FACE);
+    from.set(to.x + 0.4, to.y - 0.15, FACE + 1.8);
+    thrown.rotation.set(-0.4 + Math.random() * 0.15, 0.2 + Math.random() * 0.2, 0);
+    thrown.visible = true;
+    flight = 0;
+  };
+  group.userData.update = (dt) => {
+    if (flight < 0) return false;
+    flight = Math.min(1, flight + dt / 0.25); // a quarter of a second in the air
+    thrown.position.lerpVectors(from, to, flight);
+    thrown.position.y += Math.sin(flight * Math.PI) * 0.12; // slight arc
+    if (flight >= 1) flight = -1;
+    return true;
+  };
+  group.scale.setScalar(1.35);
+  return group;
+}
+
 /* ---------------- layout ---------------- */
 
 export function buildKnickKnacks({ shelfSize, maxAnisotropy = 8 }) {
@@ -668,8 +872,8 @@ export function buildKnickKnacks({ shelfSize, maxAnisotropy = 8 }) {
 
   const wood = createWoodMaterial({ maxAnisotropy });
   wood.map.repeat.set(1, 1);
-  const floatingShelf = (x, y) => {
-    const s = box(SIDE_WIDTH, 0.08, 0.62, wood, { pos: [x, y - 0.04, WALL_Z + 0.31] });
+  const floatingShelf = (x, y, depth = 0.62) => {
+    const s = box(SIDE_WIDTH, 0.08, depth, wood, { pos: [x, y - 0.04, WALL_Z + depth / 2] });
     group.add(s);
     return y;
   };
@@ -695,6 +899,10 @@ export function buildKnickKnacks({ shelfSize, maxAnisotropy = 8 }) {
   add(retroComputer(), leftX - 0.45, lowerL, -0.1, { title: 'Terminal', sub: 'Hello, world!', sound: 'typing' });
   add(gameController(), leftX + 0.7, lowerL, 0.02, { title: 'Video games', sound: 'coin' });
 
+  // Drive-in diorama on its own shelf, level with the lower record rows
+  const diorama = floatingShelf(leftX, -0.6, 0.9);
+  add(driveInDiorama(), leftX, diorama, WALL_Z + 0.45, { title: 'Drive-in movie', sound: 'drivein' });
+
   // On top of the record shelf's left corner (the top ledge is at shelfSize.y - 0.15).
   add(pothos(), -shelfSize.x / 2 + 0.35, shelfSize.y - 0.15 - lift, -0.05, { sound: 'rustle' });
 
@@ -708,6 +916,8 @@ export function buildKnickKnacks({ shelfSize, maxAnisotropy = 8 }) {
 
   add(brigidsCross(), rightX + 0.85, 3.9, WALL_Z + 0.03, { title: "St Brigid's Cross", tilt: 0.08, wall: true, sound: 'rustle' });
   add(irelandPhoto(), rightX + 0.82, 2.75, WALL_Z + 0.03, { title: 'Ireland', sub: 'Galway and the Aran Islands', tilt: 0.05, wall: true, sound: 'jig' });
+  // Dartboard below the guitar, level with the drive-in on the left
+  add(dartboard(), rightX + 0.25, -0.3, WALL_Z + 0.03, { title: 'Darts', tilt: 0.04, wall: true, sound: 'darts' });
   add(guitar(), rightX - 0.1, 4.2, -0.2, { title: 'My guitar', sub: 'A Les Paul', sound: 'strum' });
 
   // Static hit boxes, computed once with everything at rest.
@@ -729,7 +939,7 @@ export function buildKnickKnacks({ shelfSize, maxAnisotropy = 8 }) {
     for (const item of items) {
       const { object } = item;
       const active = item === hovered;
-      const custom = object.userData.update?.(dt);
+      const custom = object.userData.update?.(dt, item.hover);
       if (custom) moving = true;
       if (object.userData.customHover) continue;
 
