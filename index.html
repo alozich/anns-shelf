@@ -36,7 +36,8 @@
           bottom: 76px; max-width: calc(100vw - 32px); box-sizing: border-box;
           text-align: center; font-size: 16px; border-radius: 18px;
         }
-        #label small, #label em { font-size: 14px; }
+        /* Album name, artist and track each on their own line */
+        #label small, #label em { display: block; margin: 4px 0 0; font-size: 14px; }
         #sound { right: 50%; transform: translateX(50%); bottom: 24px; }
       }
       #sound.on { color: #f2c14e; border-color: rgba(242, 193, 78, 0.6); }
