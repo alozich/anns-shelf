@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createWoodMaterial } from './materials.js';
 import { PIXEL, pixelCanvas, crisp } from './pixel.js';
 import { createHitProxy } from './hover.js';
+import { reducedMotion } from './motion.js';
 
 // Personal knick-knacks on floating shelves either side of the record shelf.
 // Everything is built from simple low-poly shapes so it matches the pixel look.
@@ -385,7 +386,7 @@ function guitar() {
 
   // Swing: a damped pendulum, kicked when hovered.
   let angle = 0, velocity = 0, time = 0;
-  group.userData.onEnter = () => { velocity += 0.5; };
+  group.userData.onEnter = () => { if (!reducedMotion()) velocity += 0.5; };
   group.userData.update = (dt) => {
     time += dt;
     velocity += (-9 * angle - 1.6 * velocity) * dt;
@@ -775,7 +776,7 @@ function driveInDiorama() {
     if (timer > 0.1) {
       timer = 0;
       screen.redraw();
-      flicker = 0.88 + Math.random() * 0.12;
+      flicker = reducedMotion() ? 1 : 0.88 + Math.random() * 0.12;
     }
     screenMat.emissiveIntensity = (1.1 + hover * 0.7) * flicker; // brighter when hovered
   };
@@ -847,7 +848,7 @@ function dartboard() {
     from.set(to.x + 0.4, to.y - 0.15, FACE + 1.8);
     thrown.rotation.set(-0.4 + Math.random() * 0.15, 0.2 + Math.random() * 0.2, 0);
     thrown.visible = true;
-    flight = 0;
+    flight = reducedMotion() ? 1 : 0; // with reduced motion it simply lands
   };
   group.userData.update = (dt) => {
     if (flight < 0) return false;
@@ -955,7 +956,7 @@ export function buildKnickKnacks({ shelfSize, maxAnisotropy = 8 }) {
         // Turning sideways would push one edge into the wall.
         object.position.z = item.base.z + h * 0.03;
       } else {
-        object.rotation.y = item.baseRot.y + h * 0.18;
+        if (!reducedMotion()) object.rotation.y = item.baseRot.y + h * 0.18;
       }
       object.rotation.z = item.baseRot.z - h * (item.caption.tilt ?? 0);
     }

@@ -29,6 +29,8 @@
       #app canvas { display: block; touch-action: pan-x pan-y; -webkit-tap-highlight-color: transparent; }
       #label {
         position: fixed; left: 50%; bottom: 32px; transform: translate(-50%, 8px);
+        /* centred with left: 50%, so size to the content instead of the half-width that leaves */
+        width: max-content; max-width: calc(100vw - 48px); box-sizing: border-box;
         padding: 10px 18px; border-radius: 999px;
         background: rgba(20, 16, 12, 0.72); backdrop-filter: blur(8px);
         color: #f3e9dc; font: 600 18px/1.2 'Pixelify Sans', monospace; letter-spacing: 0.04em;
@@ -45,7 +47,15 @@
         font: 400 16px/1.2 'Pixelify Sans', monospace; letter-spacing: 0.04em;
         -webkit-font-smoothing: none;
       }
-      #sound:hover { border-color: rgba(243, 233, 220, 0.6); }
+      #sound:hover, #sound:focus-visible { border-color: rgba(243, 233, 220, 0.6); }
+      #app canvas:focus { outline: none; } /* the selected record/item shows where focus is */
+      .sr-only {
+        position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+        overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #label { transition: none; }
+      }
       /* Small screens: the label sits above the sound button and wraps */
       @media (max-width: 640px) {
         #label {
@@ -95,8 +105,8 @@
   <body>
     <div id="app"></div>
     <div id="scroll-space"></div>
-    <div id="label"></div>
-    <button id="sound" class="on" type="button">♪ Sound on</button>
+    <div id="label" role="status" aria-live="polite" aria-atomic="true"></div>
+    <button id="sound" class="on" type="button" aria-pressed="true">♪ Sound on</button>
     <button id="info" type="button" aria-label="About this site" aria-haspopup="dialog">i</button>
     <dialog id="about" aria-labelledby="about-title">
       <button id="about-close" type="button" aria-label="Close">✕</button>
@@ -109,6 +119,7 @@
         <li>The things on the side shelves react too, many with sounds</li>
         <li>Click once anywhere to turn sound on</li>
         <li>Scroll to see more of the wall</li>
+        <li>Keyboard: Tab to the shelf, then use the arrow keys, Enter and Esc</li>
       </ul>
       <h2>Under the hood</h2>
       <p>Built with Three.js, Web Audio and Vite. Every sound effect is generated in code.</p>

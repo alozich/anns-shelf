@@ -11,6 +11,7 @@ import { buildShelf, poseSleeve, SLEEVE_SIZE } from './shelf.js';
 import { PIXEL } from './pixel.js';
 import { HoverAudio } from './audio.js';
 import { buildKnickKnacks } from './knickknacks.js';
+import { reducedMotion } from './motion.js';
 
 // Draco-compressed models to place in the scene. Put .glb files in public/models/.
 // Compress any glTF with: npm run compress -- input.glb public/models/output.glb
@@ -254,16 +255,18 @@ function updateLabel() {
   // Browsers block audio until the first click, so until then, anything that
   // would make a sound nudges the visitor to click.
   const needsClick = audio.enabled && !audio.unlocked;
-  const nudge = `<em>${hover.touchMode ? 'tap' : 'click'} anywhere for sound</em>`;
+  // Hidden commas make screen readers pause between the parts of the label.
+  const sep = '<span class="sr-only">, </span>';
+  const nudge = `${sep}<em>${hover.touchMode ? 'tap' : 'click'} anywhere for sound</em>`;
   if (hovered.album) {
     const { title, artist, track, preview } = hovered.album;
     let extra = '';
     if (needsClick && preview) extra = nudge;
-    else if (audio.enabled && track) extra = `<em>♪ ${escapeHtml(track)}</em>`;
-    labelEl.innerHTML = `${escapeHtml(title)}<small>${escapeHtml(artist)}</small>${extra}`;
+    else if (audio.enabled && track) extra = `${sep}<em>♪ ${escapeHtml(track)}</em>`;
+    labelEl.innerHTML = `${escapeHtml(title)}${sep}<small>${escapeHtml(artist)}</small>${extra}`;
   } else {
     const { title, sub, sound } = hovered.caption;
-    labelEl.innerHTML = escapeHtml(title) + (sub ? `<small>${escapeHtml(sub)}</small>` : '')
+    labelEl.innerHTML = escapeHtml(title) + (sub ? `${sep}<small>${escapeHtml(sub)}</small>` : '')
       + (needsClick && sound ? nudge : '');
   }
   labelEl.classList.add('visible');
@@ -297,6 +300,104 @@ about.addEventListener('click', (e) => {
   if (e.target === about) about.close(); // a click on the backdrop, outside the card
 });
 
+/* ---------------- Keyboard navigation ---------------- */
+
+// Arrow keys move a selection through everything with a label: the left-side
+// knick-knacks (top to bottom), the albums (reading order), then the right side.
+// Selecting something is the same as hovering it.
+scene.updateMatrixWorld(true);
+const navList = (() => {
+  const entries = [...shelf.proxies, ...deco.proxies]
+    .filter((proxy) => proxy.userData.item.album || proxy.userData.item.caption?.title)
+    .map((proxy) => ({ proxy, item: proxy.userData.item, pos: proxy.getWorldPosition(new THREE.Vector3()) }));
+  const side = (left) => entries
+    .filter((e) => !e.item.album && (e.pos.x < 0) === left)
+    .sort((a, b) => b.pos.y - a.pos.y);
+  return [...side(true), ...entries.filter((e) => e.item.album), ...side(false)];
+})();
+const albumCount = shelf.items.length;
+const firstAlbum = navList.findIndex((e) => e.item.album);
+const shelfCols = navList.filter((e) => e.item.album && Math.abs(e.pos.y - navList[firstAlbum].pos.y) < 0.01).length;
+let navIndex = -1;
+
+// Scroll the page so the selected thing is comfortably on screen.
+const revealPoint = new THREE.Vector3();
+function reveal(entry) {
+  entry.proxy.getWorldPosition(revealPoint).project(camera);
+  const edge = 0.7; // keep it inside the middle 70% of the screen
+  const dx = Math.max(0, revealPoint.x - edge) + Math.min(0, revealPoint.x + edge);
+  const dy = Math.max(0, revealPoint.y - edge) + Math.min(0, revealPoint.y + edge);
+  if (dx || dy) {
+    window.scrollBy({ left: (dx * viewW()) / 2, top: (-dy * viewH()) / 2, behavior: reducedMotion() ? 'auto' : 'smooth' });
+  }
+}
+
+function selectNav(index) {
+  navIndex = Math.max(0, Math.min(navList.length - 1, index));
+  const entry = navList[navIndex];
+  setHovered(hover.select(entry.proxy).object.userData.item);
+  reveal(entry);
+}
+
+function clearSelection() {
+  hover.select(null);
+  setHovered(null);
+}
+
+const canvas = renderer.domElement;
+canvas.tabIndex = 0;
+canvas.setAttribute('role', 'application');
+canvas.setAttribute('aria-roledescription', 'record shelf');
+canvas.setAttribute('aria-label',
+  "Ann's record shelf. Use the arrow keys to browse records and the things on the side shelves, " +
+  'Enter to play a sound again, and Escape to put things back.');
+
+canvas.addEventListener('focus', () => {
+  // Only for keyboard focus (Tab); a mouse click also focuses the canvas.
+  if (!hovered && canvas.matches(':focus-visible')) selectNav(navIndex >= 0 ? navIndex : firstAlbum);
+});
+canvas.addEventListener('blur', () => {
+  if (hover.pinned && !hover.touchMode) clearSelection();
+});
+canvas.addEventListener('keydown', (e) => {
+  const current = navIndex >= 0 ? navIndex : firstAlbum;
+  const onAlbum = navList[current]?.item.album;
+  const albumPos = current - firstAlbum;
+  let next = null;
+  switch (e.key) {
+    case 'ArrowRight': next = current + 1; break;
+    case 'ArrowLeft': next = current - 1; break;
+    case 'ArrowDown':
+      next = onAlbum && albumPos + shelfCols < albumCount ? current + shelfCols : current + 1;
+      break;
+    case 'ArrowUp':
+      next = onAlbum && albumPos - shelfCols >= 0 ? current - shelfCols : current - 1;
+      break;
+    case 'Home': next = 0; break;
+    case 'End': next = navList.length - 1; break;
+    case 'Enter':
+    case ' ':
+      if (hovered?.caption) {
+        deco.enter(hovered);
+        if (hovered.caption.sound) audio.sfx(hovered.caption.sound);
+      } else if (hovered?.album) {
+        audio.playPending();
+      } else {
+        selectNav(current);
+      }
+      e.preventDefault();
+      return;
+    case 'Escape':
+      clearSelection();
+      e.preventDefault();
+      return;
+    default:
+      return;
+  }
+  e.preventDefault(); // arrow keys would otherwise scroll the page
+  selectNav(next);
+});
+
 // Sound is on by default (it starts after the first click anywhere);
 // this button mutes and unmutes.
 audio.onUnlock = updateLabel;
@@ -305,6 +406,7 @@ soundBtn.addEventListener('click', () => {
   else audio.enable();
   soundBtn.textContent = audio.enabled ? '♪ Sound on' : '♪ Sound off';
   soundBtn.classList.toggle('on', audio.enabled);
+  soundBtn.setAttribute('aria-pressed', String(audio.enabled));
   updateLabel();
 });
 
@@ -355,8 +457,9 @@ renderer.setAnimationLoop((now) => {
 
   // Subtle parallax: the camera drifts toward the pointer.
   // (Parallax follows a mouse only; on touch screens it would jump to each tap.)
-  const px = hover.touchMode ? 0 : hover.pointer.x;
-  const py = hover.touchMode ? 0 : hover.pointer.y;
+  const still = hover.pinned || reducedMotion();
+  const px = still ? 0 : hover.pointer.x;
+  const py = still ? 0 : hover.pointer.y;
   const prevX = camera.position.x, prevY = camera.position.y;
   parallaxX = damp(parallaxX, px * 0.4, 3, dt);
   parallaxY = damp(parallaxY, py * 0.25, 3, dt);
@@ -377,7 +480,7 @@ renderer.setAnimationLoop((now) => {
   for (const item of shelf.items) {
     const active = item === hovered;
     let tx = 0, ty = 0;
-    if (active && hit.uv && hit.face.normal.z > 0.5) {
+    if (active && hit.uv && hit.face.normal.z > 0.5 && !reducedMotion()) {
       ty = (hit.uv.x - 0.5) * 0.22;   // turn toward the cursor
       tx = -(hit.uv.y - 0.5) * 0.18;
     } else if (active) {

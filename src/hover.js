@@ -22,6 +22,9 @@ export class HoverController {
     // Touch screens have no hover: a tap selects something and it stays
     // selected until the next tap (on something else, the same thing, or the wall).
     this.touchMode = false;
+    // While pinned (after a tap or keyboard selection) the selection only
+    // changes on purpose, not from where the pointer happens to be.
+    this.pinned = false;
     this.onTap = null;          // called with the new hit (or null) after each tap
     this._downType = 'mouse';
 
@@ -35,6 +38,7 @@ export class HoverController {
     this._onMove = (e) => {
       if (e.pointerType === 'touch') return; // fingers don't hover; taps are handled below
       this.touchMode = false;
+      this.pinned = false;
       this._setPointer(e);
       this._inside = true;
       this._dirty = true;
@@ -53,6 +57,7 @@ export class HoverController {
     this._onClick = (e) => {
       if (this._downType !== 'touch') return;
       this.touchMode = true;
+      this.pinned = true;
       this._setPointer(e);
       this._dirty = false;
       this.raycaster.setFromCamera(this.pointer, this.camera);
@@ -70,8 +75,15 @@ export class HoverController {
   }
 
   /** Call once per frame. Pass cameraMoved=true if the camera moved this frame. */
+  /** Select a hit box directly (keyboard navigation), centred on its front face. */
+  select(proxy) {
+    this.pinned = true;
+    this.hit = proxy ? { object: proxy, uv: new THREE.Vector2(0.5, 0.5), face: { normal: new THREE.Vector3(0, 0, 1) } } : null;
+    return this.hit;
+  }
+
   update(cameraMoved = false) {
-    if (this.touchMode) return this.hit; // selection only changes on taps
+    if (this.pinned) return this.hit; // selection only changes on taps or keys
     if (!this._dirty && !cameraMoved) return this.hit;
     this._dirty = false;
 
