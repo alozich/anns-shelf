@@ -41,6 +41,39 @@
         #sound { right: 50%; transform: translateX(50%); bottom: 24px; }
       }
       #sound.on { color: #f2c14e; border-color: rgba(242, 193, 78, 0.6); }
+
+      /* "i" button and the about card */
+      #info {
+        position: fixed; left: 20px; bottom: 32px; width: 36px; height: 36px; padding: 0;
+        border: 1px solid rgba(243, 233, 220, 0.25); border-radius: 50%;
+        background: rgba(20, 16, 12, 0.72); color: #f3e9dc; cursor: pointer;
+        font: 600 18px/1 'Pixelify Sans', monospace; -webkit-font-smoothing: none;
+      }
+      #info:hover, #info:focus-visible { border-color: rgba(243, 233, 220, 0.6); }
+      #about {
+        width: min(420px, calc(100vw - 32px)); box-sizing: border-box; padding: 22px 24px 18px;
+        border: 1px solid rgba(243, 233, 220, 0.2); border-radius: 18px;
+        background: rgba(24, 19, 15, 0.94); color: #f3e9dc;
+        font: 400 15px/1.45 'Pixelify Sans', monospace; letter-spacing: 0.02em; -webkit-font-smoothing: none;
+      }
+      #about::backdrop { background: rgba(10, 8, 6, 0.55); backdrop-filter: blur(2px); }
+      #about h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: 0.04em; }
+      #about .by { margin: 2px 0 14px; color: #f2c14e; }
+      #about h2 { margin: 16px 0 6px; font-size: 15px; font-weight: 600; color: #f2c14e; }
+      #about p { margin: 0 0 8px; }
+      #about ul { margin: 0; padding-left: 18px; }
+      #about li { margin-bottom: 4px; }
+      #about a { color: #f2c14e; }
+      #about .credit { margin-top: 14px; font-size: 13px; opacity: 0.6; }
+      #about-close {
+        position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; padding: 0;
+        border: 0; border-radius: 50%; background: transparent; color: #f3e9dc; cursor: pointer;
+        font: 400 20px/1 'Pixelify Sans', monospace;
+      }
+      #about-close:hover, #about-close:focus-visible { background: rgba(243, 233, 220, 0.1); }
+      @media (max-width: 640px) {
+        #info { left: 16px; bottom: 26px; }
+      }
     </style>
   </head>
   <body>
@@ -48,6 +81,24 @@
     <div id="scroll-space"></div>
     <div id="label"></div>
     <button id="sound" class="on" type="button">♪ Sound on</button>
+    <button id="info" type="button" aria-label="About this site" aria-haspopup="dialog">i</button>
+    <dialog id="about" aria-labelledby="about-title">
+      <button id="about-close" type="button" aria-label="Close">✕</button>
+      <h1 id="about-title">Ann's Shelf</h1>
+      <p class="by">built by Ann</p>
+      <p>A pixel-art 3D shelf of records I love, plus a few things from my life.</p>
+      <h2>How it works</h2>
+      <ul>
+        <li>Hover a record (or tap one on a phone) to pull it out and hear a preview</li>
+        <li>The things on the side shelves react too, many with sounds</li>
+        <li>Click once anywhere to turn sound on</li>
+        <li>Scroll to see more of the wall</li>
+      </ul>
+      <h2>Under the hood</h2>
+      <p>Built with Three.js, Web Audio and Vite. Every sound effect is generated in code.</p>
+      <p><a href="https://github.com/alozich/anns-shelf" target="_blank" rel="noopener">View the code on GitHub →</a></p>
+      <p class="credit">Album artwork and previews belong to their artists, via Apple Music.</p>
+    </dialog>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

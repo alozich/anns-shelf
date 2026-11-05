@@ -288,6 +288,15 @@ hover.onTap = (hit) => {
   audio.playPending();
 };
 
+// "i" button: an about card with credits and how to use the shelf.
+// The native <dialog> handles Esc, focus and blocking the scene behind it.
+const about = document.getElementById('about');
+document.getElementById('info').addEventListener('click', () => about.showModal());
+document.getElementById('about-close').addEventListener('click', () => about.close());
+about.addEventListener('click', (e) => {
+  if (e.target === about) about.close(); // a click on the backdrop, outside the card
+});
+
 // Sound is on by default (it starts after the first click anywhere);
 // this button mutes and unmutes.
 audio.onUnlock = updateLabel;
