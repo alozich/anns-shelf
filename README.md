@@ -4,7 +4,7 @@ A pixel-art 3D record shelf in the browser. 37 albums I love, plus a wall of
 knick-knacks from my life. Hover a record to pull it out and hear a preview;
 hover anything on the side shelves and it reacts.
 
-**[Open the live site →](https://alozich.github.io/anns-shelf/)**
+**[Open the live site →](https://alozich.github.io/anns-shelf/)** · Built by [Ann](https://annlozich.com)
 
 ![Ann's Shelf: a pixel-art wooden record shelf full of album covers, with knick-knacks on floating shelves on either side](public/og-image.png)
 
