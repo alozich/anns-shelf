@@ -71,10 +71,14 @@ if (PIXELATE_SCENE) {
   ));
 }
 
+// On small screens everything is drawn smaller, so use finer pixels there
+// (down to 1.5) to keep album covers recognizable.
+const pixelSize = () => Math.max(1.5, Math.min(PIXEL.scene, viewW() / 330));
+
 function sizePixelTarget() {
   pixelTarget?.setSize(
-    Math.max(1, Math.round(viewW() / PIXEL.scene)),
-    Math.max(1, Math.round(viewH() / PIXEL.scene)),
+    Math.max(1, Math.round(viewW() / pixelSize())),
+    Math.max(1, Math.round(viewH() / pixelSize())),
   );
 }
 sizePixelTarget();
@@ -176,25 +180,47 @@ const camBase = new THREE.Vector3();
 
 /* ---------------- Scrolling ---------------- */
 
-// The canvas stays fixed; a tall spacer gives the page a real scrollbar, and
-// the scroll position slides the camera down the wall.
+// The canvas stays fixed; a spacer gives the page real scrollbars, and the
+// scroll position slides the camera across the wall. On portrait screens
+// (phones) the record shelf fills the width and the side areas scroll in
+// from the left and right.
 const scrollSpace = document.getElementById('scroll-space');
 const SCROLL_MARGIN = 0.4;   // breathing room above the plant and below the shelf
+const sceneLeft = -deco.width / 2;
 let visibleHeight = 1;       // world units visible top to bottom (at the shelf)
+let visibleWidth = 1;
 let scrollRange = 0;         // world units of wall below the first screenful
+let scrollRangeX = 0;        // world units of wall beyond the screen's width
 let pixelsPerUnit = 1;
 
 function fitCamera() {
   const halfV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const portrait = camera.aspect < 1;
+  const fitWidth = portrait ? shelf.size.x + 0.6 : sceneSize.x;
   const dist = Math.max(
-    (sceneSize.y / 2) / halfV,
-    (sceneSize.x / 2) / (halfV * camera.aspect),
+    portrait ? 0 : (sceneSize.y / 2) / halfV,
+    (fitWidth / 2) / (halfV * camera.aspect),
   ) * 1.06;
   camBase.set(center.x, 0, dist);
   visibleHeight = 2 * dist * halfV;
+  visibleWidth = visibleHeight * camera.aspect;
   scrollRange = Math.max(0, sceneTop - sceneBottom + SCROLL_MARGIN * 2 - visibleHeight);
+  scrollRangeX = Math.max(0, deco.width - visibleWidth);
   pixelsPerUnit = viewH() / visibleHeight;
   scrollSpace.style.height = `${Math.ceil(viewH() + scrollRange * pixelsPerUnit)}px`;
+  scrollSpace.style.width = `${Math.floor(viewW() + scrollRangeX * pixelsPerUnit)}px`;
+}
+
+// Start horizontally centred on the record shelf.
+function centerHorizontally() {
+  if (scrollRangeX > 0) window.scrollTo({ left: (scrollRangeX / 2) * pixelsPerUnit, top: window.scrollY });
+}
+
+// Where the camera looks across the wall for the current horizontal scroll.
+function viewCenterX() {
+  if (scrollRangeX <= 0) return center.x;
+  const scrolled = Math.min(scrollRangeX, window.scrollX / pixelsPerUnit);
+  return sceneLeft + visibleWidth / 2 + scrolled;
 }
 
 // Height the camera looks at for the current scroll position.
@@ -205,8 +231,10 @@ function viewCenterY() {
 }
 
 fitCamera();
-camera.position.set(camBase.x, viewCenterY() + 0.3, camBase.z);
-camera.lookAt(center.x, viewCenterY(), 0);
+centerHorizontally();
+camera.position.set(viewCenterX(), viewCenterY() + 0.3, camBase.z);
+camera.lookAt(viewCenterX(), viewCenterY(), 0);
+let parallaxX = 0;
 let parallaxY = 0;
 
 /* ---------------- Interaction ---------------- */
@@ -226,7 +254,7 @@ function updateLabel() {
   // Browsers block audio until the first click, so until then, anything that
   // would make a sound nudges the visitor to click.
   const needsClick = audio.enabled && !audio.unlocked;
-  const nudge = '<em>click anywhere for sound</em>';
+  const nudge = `<em>${hover.touchMode ? 'tap' : 'click'} anywhere for sound</em>`;
   if (hovered.album) {
     const { title, artist, track, preview } = hovered.album;
     let extra = '';
@@ -253,6 +281,13 @@ function setHovered(item) {
   updateLabel();
 }
 
+// Taps on touch screens select things. Set it now (inside the tap) so the
+// preview can start right away, which iPhones require.
+hover.onTap = (hit) => {
+  setHovered(hit ? hit.object.userData.item : null);
+  audio.playPending();
+};
+
 // Sound is on by default (it starts after the first click anywhere);
 // this button mutes and unmutes.
 audio.onUnlock = updateLabel;
@@ -269,7 +304,9 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(viewW(), viewH());
   sizePixelTarget();
+  const wasPortrait = scrollRangeX > 0;
   fitCamera();
+  if (!wasPortrait) centerHorizontally();
 });
 
 /* ---------------- Perf monitoring ---------------- */
@@ -308,14 +345,18 @@ renderer.setAnimationLoop((now) => {
   last = now;
 
   // Subtle parallax: the camera drifts toward the pointer.
-  const px = hover.pointer.x, py = hover.pointer.y;
+  // (Parallax follows a mouse only; on touch screens it would jump to each tap.)
+  const px = hover.touchMode ? 0 : hover.pointer.x;
+  const py = hover.touchMode ? 0 : hover.pointer.y;
   const prevX = camera.position.x, prevY = camera.position.y;
-  camera.position.x = damp(camera.position.x, camBase.x + px * 0.4, 3, dt);
+  parallaxX = damp(parallaxX, px * 0.4, 3, dt);
   parallaxY = damp(parallaxY, py * 0.25, 3, dt);
+  const viewX = viewCenterX();
   const viewY = viewCenterY();
+  camera.position.x = viewX + parallaxX;
   camera.position.y = viewY + 0.3 + parallaxY;
   camera.position.z = camBase.z;
-  lookTarget.set(center.x, viewY, 0);
+  lookTarget.set(viewX, viewY, 0);
   camera.lookAt(lookTarget);
   const camMoved = Math.abs(camera.position.x - prevX) + Math.abs(camera.position.y - prevY) > 1e-5;
 

@@ -30,21 +30,26 @@ export class HoverAudio {
     });
 
     // The first click, tap or key press anywhere lets the browser play audio.
+    // iPhones only accept some of these gestures, so listen for all of them
+    // until the audio engine is actually running.
+    const gestures = ['pointerdown', 'touchend', 'click', 'keydown'];
     const unlock = () => {
-      window.removeEventListener('pointerdown', unlock, true);
-      window.removeEventListener('keydown', unlock, true);
       this._unlock();
+      if (this.ctx?.state === 'running') {
+        for (const type of gestures) window.removeEventListener(type, unlock, true);
+      }
     };
-    window.addEventListener('pointerdown', unlock, true);
-    window.addEventListener('keydown', unlock, true);
+    for (const type of gestures) window.addEventListener(type, unlock, true);
   }
 
   _unlock() {
     if (!this.ctx) {
+      // On iPhones, play through the silent switch like a music app would.
+      if (navigator.audioSession) navigator.audioSession.type = 'playback';
       this.ctx = new AudioContext();
       this._startCrackle();
     }
-    this.ctx.resume();
+    if (this.ctx.state !== 'running') this.ctx.resume();
     if (this.unlocked) return;
     this.unlocked = true;
     const album = this.album;
@@ -75,12 +80,11 @@ export class HoverAudio {
 
     if (this.current) {
       const leaving = this.current;
-      if (document.hidden) {
-        fades.delete(leaving); // fades run on animation frames, which stop in hidden tabs
-        leaving.pause();
-      } else {
-        fade(leaving, 0, FADE_OUT, () => leaving.pause());
-      }
+      rampTo(this.ctx, leaving.gain, 0, FADE_OUT);
+      clearTimeout(leaving.pauseTimer);
+      leaving.pauseTimer = setTimeout(() => {
+        if (this.current !== leaving) leaving.el.pause();
+      }, FADE_OUT * 1000 + 50);
       this.current = null;
     }
     this._setCrackle(0);
@@ -94,17 +98,34 @@ export class HoverAudio {
     this._setCrackle(CRACKLE_VOLUME);
     if (!album.preview) return;
 
-    let audio = this.players.get(album);
-    if (!audio) {
-      audio = new Audio(album.preview);
-      audio.preload = 'auto';
-      audio.loop = true;
-      this.players.set(album, audio);
+    // Previews play through the audio engine (not the <audio> element's own
+    // volume), because iPhones ignore element volume entirely. Apple's preview
+    // server allows this (it sends CORS headers).
+    let player = this.players.get(album);
+    if (!player) {
+      const el = new Audio();
+      el.crossOrigin = 'anonymous';
+      el.src = album.preview;
+      el.preload = 'auto';
+      el.loop = true;
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0;
+      this.ctx.createMediaElementSource(el).connect(gain).connect(this.ctx.destination);
+      player = { el, gain, pauseTimer: 0 };
+      this.players.set(album, player);
     }
-    audio.volume = 0;
-    audio.play().catch((err) => console.warn(`Could not play preview for "${album.title}"`, err));
-    fade(audio, MUSIC_VOLUME, FADE_IN);
-    this.current = audio;
+    clearTimeout(player.pauseTimer);
+    player.el.play().catch((err) => console.warn(`Could not play preview for "${album.title}"`, err));
+    rampTo(this.ctx, player.gain, MUSIC_VOLUME, FADE_IN);
+    this.current = player;
+  }
+
+  /** Start a pending preview right away (taps: iPhones want play() inside the tap). */
+  playPending() {
+    if (!this._timer || !this.album) return;
+    clearTimeout(this._timer);
+    this._timer = 0;
+    this._play(this.album);
   }
 
   /** A strummed E major chord, at most once every 1.2 s so hovering on and off isn't noisy. */
@@ -183,23 +204,15 @@ export class HoverAudio {
   }
 }
 
-// Fade an <audio> element's volume over `seconds`, then call `done`.
-// A newer fade on the same element cancels an older one.
-const fades = new WeakMap();
-function fade(audio, to, seconds, done) {
-  const from = audio.volume;
-  const start = performance.now();
-  const token = {};
-  fades.set(audio, token);
-  const step = (now) => {
-    if (fades.get(audio) !== token) return;
-    // The frame timestamp can be a hair earlier than `start`, so clamp to 0..1.
-    const t = Math.min(1, Math.max(0, (now - start) / (seconds * 1000)));
-    audio.volume = Math.min(1, Math.max(0, from + (to - from) * t));
-    if (t < 1) requestAnimationFrame(step);
-    else done?.();
-  };
-  requestAnimationFrame(step);
+// Fade a gain node to `to` over `seconds` on the audio clock. Unlike
+// animation-frame fades this keeps working in background tabs, and a newer
+// ramp simply replaces an older one.
+function rampTo(ctx, gainNode, to, seconds) {
+  const g = gainNode.gain;
+  const now = ctx.currentTime;
+  g.cancelScheduledValues(now);
+  g.setValueAtTime(g.value, now);
+  g.linearRampToValueAtTime(to, now + seconds);
 }
 
 // Karplus-Strong plucked strings: each string is a short burst of noise fed

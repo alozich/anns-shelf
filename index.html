@@ -6,11 +6,11 @@
     <title>Ann's Shelf</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
-      html { overflow-x: hidden; overflow-y: auto; background: #15110e; scrollbar-width: thin; scrollbar-color: #5a4636 #15110e; }
+      html { overflow: auto; background: #15110e; scrollbar-width: thin; scrollbar-color: #5a4636 #15110e; }
       body { margin: 0; }
-      #scroll-space { width: 1px; } /* height set from JS so the page scrolls */
+      #scroll-space { width: 1px; } /* size set from JS so the page scrolls */
       #app { position: fixed; inset: 0; }
-      #app canvas { display: block; touch-action: pan-y; }
+      #app canvas { display: block; touch-action: pan-x pan-y; -webkit-tap-highlight-color: transparent; }
       #label {
         position: fixed; left: 50%; bottom: 32px; transform: translate(-50%, 8px);
         padding: 10px 18px; border-radius: 999px;
@@ -30,6 +30,15 @@
         -webkit-font-smoothing: none;
       }
       #sound:hover { border-color: rgba(243, 233, 220, 0.6); }
+      /* Small screens: the label sits above the sound button and wraps */
+      @media (max-width: 640px) {
+        #label {
+          bottom: 76px; max-width: calc(100vw - 32px); box-sizing: border-box;
+          text-align: center; font-size: 16px; border-radius: 18px;
+        }
+        #label small, #label em { font-size: 14px; }
+        #sound { right: 50%; transform: translateX(50%); bottom: 24px; }
+      }
       #sound.on { color: #f2c14e; border-color: rgba(242, 193, 78, 0.6); }
     </style>
   </head>
